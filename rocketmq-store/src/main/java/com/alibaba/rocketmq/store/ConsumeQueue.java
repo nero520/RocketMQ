@@ -26,6 +26,7 @@ import java.util.List;
 
 
 /**
+ * xiaoxiong 基本上完成了一次消息提供端发起send操作所做的哪些事情，主要是通过CommitLog来进行消息内容的持久化，以及通过ConsumerQueue来确定消息被哪个队列消费，以及消息的索引持久化
  * @author shijia.wxr
  */
 public class ConsumeQueue {
@@ -363,10 +364,10 @@ public class ConsumeQueue {
 
     private boolean putMessagePostionInfo(final long offset, final int size, final long tagsCode,
             final long cqOffset) {
-        if (offset <= this.maxPhysicOffset) {
+        if (offset <= this.maxPhysicOffset) {//xiaoxiong 在数据恢复时会走到这个流程
             return true;
         }
-
+        //xiaoxiong 下面是要写入磁盘的内容,写入了commitlog得全局offset和消息体的大小，以及tags信息
         this.byteBufferIndex.flip();
         this.byteBufferIndex.limit(CQStoreUnitSize);
         this.byteBufferIndex.putLong(offset);
@@ -374,9 +375,10 @@ public class ConsumeQueue {
         this.byteBufferIndex.putLong(tagsCode);
 
         final long expectLogicOffset = cqOffset * CQStoreUnitSize;
-
+       //xiaoxiong ConsumerQueue(默认情况下ConsumerQueue是在${user_home}/store/consumerqueue/${queueId})也是通过MapedFileQueue来进行磁盘IO的，素以MapedFileQueue可以理解为RocketMQ的磁盘访问入口
         MapedFile mapedFile = this.mapedFileQueue.getLastMapedFile(expectLogicOffset);
         if (mapedFile != null) {
+            //xiaoxiong  纠正MapedFile逻辑队列索引顺序
             if (mapedFile.isFirstCreateInQueue() && cqOffset != 0 && mapedFile.getWrotePostion() == 0) {
                 this.minLogicOffset = expectLogicOffset;
                 this.fillPreBlank(mapedFile, expectLogicOffset);
@@ -398,7 +400,7 @@ public class ConsumeQueue {
                         );
                 }
             }
-
+            //xiaoxiong 记录物理队列最大offset
             this.maxPhysicOffset = offset;
             return mapedFile.appendMessage(this.byteBufferIndex.array());
         }
