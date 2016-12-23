@@ -57,6 +57,22 @@ import java.util.Map;
 
 
 /**
+ * xiaoxiong 消息提供端发起一个send操作，会被broker中SendMessageProcessor所处理,这是消费提供者入口
+ * 至于SendMessageProcessor这个类中做了哪些事情，这里就不做解释，
+ * 主要是对SendMessageProcessor如何将消息写入到磁盘进行介绍，
+ * SendMessageProcessor会把写磁盘的操作交给DefaultMessageStore类去处理，
+ * 而DefaultMessageStore也不会做具体IO的事情，
+ * 而是交给CommitLog，在CommitLog之下则是MapedFileQueue，
+ * 在MapedFileQueue中会写入到最新的MapedFile中（此时的MapedFile默认最大1G,所有存储的配置都在MessageStoreConfig类中获取。），
+ * 这里从SendMessageProcessor到DefaultMessageStore再到CommitLog，最后到MapedFileQueue，
+ * 这个过程中是所有的topic都操作同一个MapedFileQueue,
+ * 那就是说所有的Topic的消息都些在一个目录下面（因为一个MapedFileQueue对应一个目录，CommitLog的目录默认是在${user_home}/store/commitlog下），
+ * 上面由消息提供端每次send都是一个完整的消息体，那就是一个完整的消息，
+ * 这个消息体将会连续的写到MapedFileQueue的最新MapedFile中，
+ * 在MapedFileQueue里面维护了commitlog的全局offset，那么只需要告诉MapedFileQueue一个全局offset和消息体的大小，
+ * 那么就可以从MapedFileQueue中读取一个消息。
+ * 但是在commitlog中只是负责将消息写入磁盘，而不管你怎么来读取，但是CommitLog通过MapedFileQueue写完之后，
+ * 那么会得到当前写的位置，以及消息体大小，同时加上topic的元数据信息，通过异步队列的方式写到topic的索引文件
  * @author shijia.wxr
  */
 public class SendMessageProcessor extends AbstractSendMessageProcessor implements NettyRequestProcessor {
