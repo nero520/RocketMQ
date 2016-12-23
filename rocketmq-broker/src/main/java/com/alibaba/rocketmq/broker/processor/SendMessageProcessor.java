@@ -128,6 +128,7 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
         }
 
         String newTopic = MixAll.getRetryTopic(requestHeader.getGroup());
+        //xiaoxiong为消息提供端send某个topic的消息并不知道queueId,这个queueId是在broker端生成的，生成代码在SendMessageProcessor的方法consumerSendMsgBack中,queueId是这么来的
         int queueIdInt = Math.abs(this.random.nextInt() % 99999999) % subscriptionGroupConfig.getRetryQueueNums();
 
         int topicSysFlag = 0;
